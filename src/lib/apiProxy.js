@@ -110,7 +110,7 @@ export function isRateLimited(key, maxPerMinute = 10) {
 /**
  * セキュアなファイルアップロード
  */
-export async function uploadFile(file, bucketName = 'uploads') {
+export async function uploadFile(file, _bucketName = 'uploads') {
   if (!file || !file.type.startsWith('image/')) {
     throw new Error('有効な画像ファイルを選択してください')
   }
