@@ -1,0 +1,20 @@
+/* App-specific styles */
+
+.gradient-text {
+  background: linear-gradient(135deg, #E2703A 0%, #F59E0B 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.card-hover {
+  @apply transition-all duration-300 hover:shadow-lg hover:scale-105;
+}
+
+.btn-primary {
+  @apply bg-gradient-to-r from-orange-400 to-red-500 text-white font-bold py-4 px-6 rounded-full shadow-lg active:scale-95 transition-all;
+}
+
+.btn-secondary {
+  @apply bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold py-4 px-6 rounded-full shadow-lg active:scale-95 transition-all;
+}
