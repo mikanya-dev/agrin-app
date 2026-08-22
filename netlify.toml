@@ -1,0 +1,45 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+  functions = "netlify/functions"
+
+[dev]
+  command = "npm run dev"
+  port = 3000
+
+# リダイレクト: SPA対応
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# セキュリティヘッダー
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
+    X-XSS-Protection = "1; mode=block"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "geolocation=(), microphone=(), camera=()"
+
+# キャッシュポリシー
+[[headers]]
+  for = "/dist/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/*.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+# 環境変数のサポート（CI/CDから注入）
+[context.production]
+  environment = { VITE_SUPABASE_URL = "", VITE_SUPABASE_ANON_KEY = "", VITE_AI_PROXY_URL = "", VITE_GEMINI_API_KEY = "" }
+
+[context.preview]
+  environment = { VITE_SUPABASE_URL = "", VITE_SUPABASE_ANON_KEY = "", VITE_AI_PROXY_URL = "", VITE_GEMINI_API_KEY = "" }
+
+[context.develop]
+  environment = { VITE_SUPABASE_URL = "", VITE_SUPABASE_ANON_KEY = "", VITE_AI_PROXY_URL = "", VITE_GEMINI_API_KEY = "" }
