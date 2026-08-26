@@ -1,12 +1,19 @@
 import liff from '@line/liff'
 import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { supabase } from './lib/supabase'
+import FarmerManagement from './components/FarmerManagement'
+import MyPage from './components/MyPage'
+import FarmersPageComponent from './components/FarmersPage'
+import BuyPage from './components/BuyPage'
+import BulletinBoardPage from './components/BulletinBoardPage'
+import ContactPage from './components/ContactPage'
+import FarmerLogin from './components/FarmerLogin'
 import {
   Leaf, ShoppingBag, UserCircle, CheckCircle2, ArrowRight,
   MessageSquare, AlertCircle, Clock, Calendar, Heart,
   Users2, MapPin, Globe, BookOpen, Settings, ChevronRight, Send, Loader2,
   X as CloseIcon, Info, ExternalLink, Sparkles, Sun, Sprout, Camera,
-  Upload, Trash2, Edit, RotateCcw, LogOut
+  Upload, Trash2, Edit, RotateCcw, LogOut, ShieldCheck, Mail
 } from 'lucide-react'
 import './styles/App.css'
 
@@ -21,7 +28,7 @@ const getLiff = () => {
     id: "MOCK_ID",
     init: async () => { console.log("LIFF Mock: Init") },
     getProfile: async () => ({ userId: "mock_user_123", displayName: "テスト太郎" }),
-    isLoggedIn: () => true,
+    isLoggedIn: () => false,
     isInClient: () => false,
   }
 }
@@ -322,39 +329,132 @@ const MapPage = ({ farmers }) => {
 }
 
 // ナビゲーション
-const Navigation = ({ currentPage, onNavigate }) => (
-  <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg">
-    <div className="grid grid-cols-4 gap-1 p-3 max-w-2xl mx-auto">
-      {[
-        { id: 'home', icon: Leaf, label: 'ホーム' },
-        { id: 'farmers', icon: Users2, label: '農家' },
-        { id: 'products', icon: ShoppingBag, label: '商品' },
-        { id: 'map', icon: MapPin, label: 'マップ' },
-      ].map(({ id, icon: Icon, label }) => (
-        <button
-          key={id}
-          onClick={() => onNavigate(id)}
-          className={`flex flex-col items-center gap-1 py-2 px-1 rounded-xl transition-colors ${
-            currentPage === id
-              ? 'bg-orange-100 text-orange-600'
-              : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
-          }`}
-        >
-          <Icon size={24} />
-          <span className="text-xs font-bold">{label}</span>
-        </button>
-      ))}
+const Navigation = ({ currentPage, onNavigate, isFarmerLoggedIn }) => {
+  const menuItems = isFarmerLoggedIn
+    ? [
+        { id: 'know', icon: BookOpen, label: '知る' },
+        { id: 'buy', icon: ShoppingBag, label: '買う' },
+        { id: 'farmer_board', icon: MessageSquare, label: '広場' },
+        { id: 'farmer-bulletin', icon: ShieldCheck, label: '農家掲示板' },
+        { id: 'mypage', icon: UserCircle, label: 'マイページ' },
+      ]
+    : [
+        { id: 'know', icon: BookOpen, label: '知る' },
+        { id: 'buy', icon: ShoppingBag, label: '買う' },
+        { id: 'farmer_board', icon: MessageSquare, label: '広場' },
+        { id: 'empty', icon: null, label: '' }, // 空白
+        { id: 'contact', icon: Mail, label: 'お問合せ' },
+      ]
+
+  return (
+    <div className={`fixed bottom-0 left-0 right-0 shadow-lg transition-colors ${
+      isFarmerLoggedIn
+        ? 'bg-gradient-to-r from-green-600 to-emerald-600'
+        : 'bg-white border-t border-gray-200'
+    }`}>
+      <div className="grid gap-0 p-0 max-w-2xl mx-auto" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
+        {menuItems.map(({ id, icon: Icon, label }) => {
+          if (id === 'empty') {
+            return <div key={id} />
+          }
+
+          return (
+            <button
+              key={id}
+              onClick={() => onNavigate(id)}
+              className={`flex flex-col items-center gap-1 py-4 px-2 transition-colors ${
+                isFarmerLoggedIn
+                  ? currentPage === id
+                    ? 'text-white border-b-2 border-white'
+                    : 'text-white/70 border-b-2 border-transparent hover:text-white/90'
+                  : currentPage === id
+                  ? 'text-orange-500 border-b-2 border-orange-500'
+                  : 'text-gray-400 border-b-2 border-transparent hover:text-gray-600'
+              }`}
+            >
+              {Icon && <Icon size={24} />}
+              <span className="text-xs font-bold">{label}</span>
+            </button>
+          )
+        })}
+      </div>
     </div>
-  </div>
-)
+  )
+}
 
 // メインアプリ
 export default function App() {
   const [session, setSession] = useState(null)
   const [farmers, setFarmers] = useState([])
   const [loading, setLoading] = useState(true)
-  const [currentPage, setCurrentPage] = useState('home')
+  const [currentPage, setCurrentPage] = useState('know')
   const [selectedFarmer, setSelectedFarmer] = useState(null)
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [adminPassword, setAdminPassword] = useState('')
+
+  // farmerId を localStorage から復元
+  const [farmerId, setFarmerId] = useState(() => {
+    const saved = localStorage.getItem('farmerId')
+    return saved || null
+  })
+
+  // ログインフラグを localStorage から復元
+  const [isLoggedIn, setIsLoggedIn] = useState(() => {
+    const saved = localStorage.getItem('isLoggedIn')
+    return saved === 'true'
+  })
+
+  // LINE IDを state で管理
+  const [lineId, setLineId] = useState(() => {
+    const saved = localStorage.getItem('lineId')
+    return saved || null
+  })
+
+  const [isFarmerMode, setIsFarmerMode] = useState(false)
+
+  // URL パラメータで農家モードを検出
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('mode') === 'farmer') {
+      setIsFarmerMode(true)
+    }
+  }, [])
+
+  // farmerId と isLoggedIn を localStorage に保存
+  useEffect(() => {
+    if (farmerId) {
+      localStorage.setItem('farmerId', farmerId)
+    } else {
+      localStorage.removeItem('farmerId')
+    }
+  }, [farmerId])
+
+  useEffect(() => {
+    if (isLoggedIn) {
+      localStorage.setItem('isLoggedIn', 'true')
+    } else {
+      localStorage.removeItem('isLoggedIn')
+    }
+  }, [isLoggedIn])
+
+  // LINE ID を localStorage に保存
+  useEffect(() => {
+    if (lineId) {
+      localStorage.setItem('lineId', lineId)
+    } else {
+      localStorage.removeItem('lineId')
+    }
+  }, [lineId])
+
+  // ログイン状態で自動的にマイページを表示
+  useEffect(() => {
+    if (isLoggedIn && farmerId) {
+      setCurrentPage('mypage')
+    } else if (!isLoggedIn && currentPage === 'mypage') {
+      // ログアウト時はお客様モードに戻す
+      setCurrentPage('know')
+    }
+  }, [isLoggedIn, farmerId])
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -372,12 +472,32 @@ export default function App() {
     const fetchFarmers = async () => {
       try {
         const { data, error } = await supabase
-          .from('farmers')
+          .from('farms')
           .select('*')
-          .order('id', { ascending: true })
 
         if (error) throw error
-        setFarmers(data || [])
+
+        // farm_profiles から is_active = true のものを取得
+        if (data && data.length > 0) {
+          const { data: profiles } = await supabase
+            .from('farm_profiles')
+            .select('farm_id, icon_url, crops_list')
+            .eq('is_active', true)
+
+          const profileMap = profiles?.reduce((acc, p) => {
+            acc[p.farm_id] = p
+            return acc
+          }, {}) || {}
+
+          const activeFarmIds = Object.keys(profileMap)
+          const activeFarms = data
+            .filter(f => activeFarmIds.includes(f.id))
+            .map(f => ({ ...f, icon_url: profileMap[f.id]?.icon_url, crops_list: profileMap[f.id]?.crops_list }))
+
+          setFarmers(activeFarms)
+        } else {
+          setFarmers([])
+        }
       } catch (err) {
         console.error('農家データ取得エラー:', err)
       } finally {
@@ -392,38 +512,106 @@ export default function App() {
     return <div className="flex items-center justify-center min-h-screen"><Loader2 size={40} className="animate-spin text-orange-500" /></div>
   }
 
+  // 農家ログインモード
+  if (isFarmerMode && !farmerId) {
+    return (
+      <FarmerLogin
+        onLoginSuccess={(id) => {
+          setFarmerId(id)
+          setCurrentPage('mypage')
+          // URL から ?mode=farmer を削除
+          window.history.replaceState({}, document.title, window.location.pathname)
+        }}
+      />
+    )
+  }
+
   const renderPage = () => {
     const pageProps = { farmers, onNavigate: setCurrentPage, onSelectFarmer: setSelectedFarmer }
 
     switch (currentPage) {
-      case 'farmers':
-        return <FarmersPage {...pageProps} />
+      case 'know':
+        return <FarmersPageComponent farmers={farmers} onNavigate={setCurrentPage} onSelectFarmer={setSelectedFarmer} />
       case 'farmer-detail':
         return <FarmerDetailPage farmer={selectedFarmer} onNavigate={setCurrentPage} />
-      case 'products':
-        return <ProductsPage {...pageProps} />
-      case 'map':
-        return <MapPage farmers={farmers} />
+      case 'buy':
+        return <BuyPage farmers={farmers} />
+      case 'farmer_board':
+        return <BulletinBoardPage farmers={farmers} boardType="customer" />
+      case 'farmer-bulletin':
+        return <BulletinBoardPage farmers={farmers} boardType="farmer" />
+      case 'contact':
+        return <ContactPage />
+      case 'mypage':
+        return <MyPage farmerId={farmerId} onLogout={() => {
+          setIsLoggedIn(false)
+          setCurrentPage('know')
+        }} />
       default:
-        return <HomePage farmers={farmers} onNavigate={setCurrentPage} />
+        return (
+          <div className="space-y-4">
+            <PageHeader title="マイページ" icon={UserCircle} />
+            {!isAdmin ? (
+              <Card>
+                <button
+                  onClick={() => setIsAdmin(true)}
+                  className="w-full bg-orange-500 text-white py-3 rounded-xl font-bold hover:bg-orange-600"
+                >
+                  管理者として農園情報を操作
+                </button>
+              </Card>
+            ) : (
+              <div className="space-y-4">
+                <button
+                  onClick={() => setIsAdmin(false)}
+                  className="w-full bg-gray-300 text-gray-700 py-2 rounded-xl font-bold"
+                >
+                  終了
+                </button>
+                <FarmerManagement lineId="admin" onSaveSuccess={() => fetchFarmers()} />
+              </div>
+            )}
+          </div>
+        )
     }
   }
+
+  // `/farmer` URL の場合はログイン画面表示
+  const isFarmerPath = window.location.pathname === '/farmer'
+
+  if (isFarmerPath && !isLoggedIn) {
+    return <FarmerLogin onLoginSuccess={(id) => {
+      setFarmerId(id)
+      setIsLoggedIn(true)
+    }} />
+  }
+
+  // `/farmer` 以外で farmerId がない場合はスキップ（通常画面表示）
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-orange-50 pb-24">
       <style>{`
         body {
-          font-family: "Meiryo", "Hiragino Kaku Gothic ProN", "MS PGothic", sans-serif;
+          font-family: "-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Open Sans", sans-serif;
         }
         .scrollbar-hide::-webkit-scrollbar { display: none; }
         .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
       `}</style>
 
+      {/* 開発モード用のデバッグ表示 */}
+      {import.meta.env.DEV && (
+        <div className="fixed top-0 left-0 right-0 bg-yellow-300 text-black p-2 text-xs font-mono z-50 flex gap-4 flex-wrap">
+          <div>farmerId: <span className="font-bold">{farmerId || 'null'}</span></div>
+          <div>isLoggedIn: <span className="font-bold">{isLoggedIn ? 'true' : 'false'}</span></div>
+          <div>lineId: <span className="font-bold">{lineId || 'null'}</span></div>
+        </div>
+      )}
+
       <div className="max-w-2xl mx-auto p-4">
         {renderPage()}
       </div>
 
-      <Navigation currentPage={currentPage} onNavigate={setCurrentPage} />
+      <Navigation currentPage={currentPage} onNavigate={setCurrentPage} isFarmerLoggedIn={isLoggedIn} />
     </div>
   )
 }
