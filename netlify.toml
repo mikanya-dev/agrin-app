@@ -33,13 +33,3 @@
   for = "/*.html"
   [headers.values]
     Cache-Control = "public, max-age=0, must-revalidate"
-
-# 環境変数のサポート（CI/CDから注入）
-[context.production]
-  environment = { VITE_SUPABASE_URL = "", VITE_SUPABASE_ANON_KEY = "", VITE_AI_PROXY_URL = "", VITE_GEMINI_API_KEY = "" }
-
-[context.preview]
-  environment = { VITE_SUPABASE_URL = "", VITE_SUPABASE_ANON_KEY = "", VITE_AI_PROXY_URL = "", VITE_GEMINI_API_KEY = "" }
-
-[context.develop]
-  environment = { VITE_SUPABASE_URL = "", VITE_SUPABASE_ANON_KEY = "", VITE_AI_PROXY_URL = "", VITE_GEMINI_API_KEY = "" }
