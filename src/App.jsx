@@ -1,6 +1,7 @@
 import liff from '@line/liff'
 import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { supabase } from './lib/supabase'
+import { PushNotificationModal } from './components/PushNotificationModal'
 import {
   Leaf, ShoppingBag, UserCircle, CheckCircle2, ArrowRight,
   MessageSquare, AlertCircle, Clock, Calendar, Heart,
@@ -355,6 +356,8 @@ export default function App() {
   const [loading, setLoading] = useState(true)
   const [currentPage, setCurrentPage] = useState('home')
   const [selectedFarmer, setSelectedFarmer] = useState(null)
+  const [showPushModal, setShowPushModal] = useState(false)
+  const [pushModalShown, setPushModalShown] = useState(localStorage.getItem('pushModalShown') === 'true')
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -367,6 +370,15 @@ export default function App() {
 
     return () => subscription?.unsubscribe()
   }, [])
+
+  // 初回ロード時にプッシュ通知モーダルを表示
+  useEffect(() => {
+    if (!loading && !pushModalShown) {
+      setShowPushModal(true)
+      setPushModalShown(true)
+      localStorage.setItem('pushModalShown', 'true')
+    }
+  }, [loading, pushModalShown])
 
   useEffect(() => {
     const fetchFarmers = async () => {
@@ -424,6 +436,8 @@ export default function App() {
       </div>
 
       <Navigation currentPage={currentPage} onNavigate={setCurrentPage} />
+
+      <PushNotificationModal isOpen={showPushModal} onClose={() => setShowPushModal(false)} />
     </div>
   )
 }
