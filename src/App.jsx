@@ -1,6 +1,7 @@
 import liff from '@line/liff'
 import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { supabase } from './lib/supabase'
+import { PushNotificationModal } from './components/PushNotificationModal'
 import FarmerManagement from './components/FarmerManagement'
 import MyPage from './components/MyPage'
 import FarmersPageComponent from './components/FarmersPage'
@@ -391,6 +392,8 @@ export default function App() {
   const [selectedFarmer, setSelectedFarmer] = useState(null)
   const [isAdmin, setIsAdmin] = useState(false)
   const [adminPassword, setAdminPassword] = useState('')
+  const [showPushModal, setShowPushModal] = useState(false)
+  const [pushModalShown, setPushModalShown] = useState(localStorage.getItem('pushModalShown') === 'true')
 
   // farmerId を localStorage から復元
   const [farmerId, setFarmerId] = useState(() => {
@@ -468,45 +471,54 @@ export default function App() {
     return () => subscription?.unsubscribe()
   }, [])
 
-  useEffect(() => {
-    const fetchFarmers = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('farms')
-          .select('*')
+  const fetchFarmers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('farms')
+        .select('*')
 
-        if (error) throw error
+      if (error) throw error
 
-        // farm_profiles から is_active = true のものを取得
-        if (data && data.length > 0) {
-          const { data: profiles } = await supabase
-            .from('farm_profiles')
-            .select('farm_id, icon_url, crops_list')
-            .eq('is_active', true)
+      // farm_profiles から is_active = true のものを取得
+      if (data && data.length > 0) {
+        const { data: profiles } = await supabase
+          .from('farm_profiles')
+          .select('farm_id, icon_url, crops_list')
+          .eq('is_active', true)
 
-          const profileMap = profiles?.reduce((acc, p) => {
-            acc[p.farm_id] = p
-            return acc
-          }, {}) || {}
+        const profileMap = profiles?.reduce((acc, p) => {
+          acc[p.farm_id] = p
+          return acc
+        }, {}) || {}
 
-          const activeFarmIds = Object.keys(profileMap)
-          const activeFarms = data
-            .filter(f => activeFarmIds.includes(f.id))
-            .map(f => ({ ...f, icon_url: profileMap[f.id]?.icon_url, crops_list: profileMap[f.id]?.crops_list }))
+        const activeFarmIds = Object.keys(profileMap)
+        const activeFarms = data
+          .filter(f => activeFarmIds.includes(f.id))
+          .map(f => ({ ...f, icon_url: profileMap[f.id]?.icon_url, crops_list: profileMap[f.id]?.crops_list }))
 
-          setFarmers(activeFarms)
-        } else {
-          setFarmers([])
-        }
-      } catch (err) {
-        console.error('農家データ取得エラー:', err)
-      } finally {
-        setLoading(false)
+        setFarmers(activeFarms)
+      } else {
+        setFarmers([])
       }
+    } catch (err) {
+      console.error('農家データ取得エラー:', err)
+    } finally {
+      setLoading(false)
     }
+  }
 
+  useEffect(() => {
     fetchFarmers()
   }, [])
+
+  // 初回ロード時にプッシュ通知モーダルを表示
+  useEffect(() => {
+    if (!loading && !pushModalShown) {
+      setShowPushModal(true)
+      setPushModalShown(true)
+      localStorage.setItem('pushModalShown', 'true')
+    }
+  }, [loading, pushModalShown])
 
   if (loading) {
     return <div className="flex items-center justify-center min-h-screen"><Loader2 size={40} className="animate-spin text-orange-500" /></div>
@@ -612,6 +624,8 @@ export default function App() {
       </div>
 
       <Navigation currentPage={currentPage} onNavigate={setCurrentPage} isFarmerLoggedIn={isLoggedIn} />
+
+      <PushNotificationModal isOpen={showPushModal} onClose={() => setShowPushModal(false)} />
     </div>
   )
 }
